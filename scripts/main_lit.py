@@ -4,10 +4,8 @@ from lit_nlp import dev_server
 import torch
 
 from llama_lit.wrapper.model import Llama2cModel
-from model import ModelArgs, Transformer
-from tokenizer import Tokenizer
+from llama_lit.wrapper.dataset import Llama2cDataset
 
-start: str = "Once upon a time, there was a handsome red wolf named Bob."
 num_samples = 1  # number of samples to draw
 max_new_tokens = 100  # number of tokens generated in each sample
 temperature = (
@@ -20,39 +18,20 @@ top_k = (
 model_path: str = "stories15M.pt"
 tokenizer_model_path: str = "tokenizer.model"
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 dataset_path: str = "data/TinyStories_all_data/data00.json"
 
-with open(dataset_path, "r") as f:
-    dataset = json.load(f)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-checkpoint = torch.load(model_path)
+dataset = Llama2cDataset(dataset_path)
+model = Llama2cModel(
+    model_path,
+    tokenizer_model_path,
+    device,
+    num_samples,
+    max_new_tokens,
+    temperature,
+    top_k,
+)
 
-model_args = ModelArgs(**checkpoint["model_args"])
-
-model = Transformer(model_args)
-
-model.load_state_dict(checkpoint["model"])
-model.to(device=device)
-
-enc = Tokenizer(tokenizer_model=tokenizer_model_path)
-start_ids = enc.encode(start, bos=True, eos=False)
-x = torch.tensor(start_ids, dtype=torch.long, device=device)[None, ...]
-
-with torch.no_grad():
-    for k in range(num_samples):
-        y = model.generate(x, max_new_tokens, temperature=temperature, top_k=top_k)
-        print(enc.decode(y[0].tolist()))
-        print("---------------")
-
-
-# datasets = {
-#     "foo_data": FooDataset("/path/to/foo.tsv"),
-#     "bar_data": BarDataset("/path/to/bar.tfrecord"),
-# }
-# models = {"my_model": Llama2cModel(model_path)}
-# lit_demo = dev_server.Server(models, datasets, port=4321)
-# lit_demo.serve()
-
-print("Done!")
+lit_demo = dev_server.Server(model, dataset, port=4321)
+lit_demo.serve()

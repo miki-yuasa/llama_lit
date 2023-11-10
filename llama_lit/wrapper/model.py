@@ -13,7 +13,14 @@ class Llama2cModel(Model):
     """
 
     def __init__(
-        self, model_path: str, tokenizer_model_path: str, device: torch.device
+        self,
+        model_path: str,
+        tokenizer_model_path: str,
+        device: torch.device,
+        num_samples: int = 1,
+        max_new_tokens: int = 100,
+        temperature: float = 1.0,
+        top_k: int = 300,
     ) -> None:
         self.model_path: str = model_path
         self.device: torch.device = device
@@ -26,13 +33,14 @@ class Llama2cModel(Model):
 
         self.enc = Tokenizer(tokenizer_model=tokenizer_model_path)
 
+        self.num_samples: int = num_samples
+        self.max_new_tokens: int = max_new_tokens
+        self.temperature: float = temperature
+        self.top_k: int = top_k
+
     def predict(
         self,
         inputs: Iterable[JsonDict],
-        num_samples: int = 1,
-        max_new_tokens: int = 100,
-        temperature: float = 1.0,
-        top_k: int = 300,
     ) -> Iterable[JsonDict]:
         predictions = []
 
@@ -42,9 +50,12 @@ class Llama2cModel(Model):
             x = torch.tensor(start_ids, dtype=torch.long, device=self.device)[None, ...]
 
             with torch.no_grad():
-                for k in range(num_samples):
+                for k in range(self.num_samples):
                     y = self.model.generate(
-                        x, max_new_tokens, temperature=temperature, top_k=top_k
+                        x,
+                        self.max_new_tokens,
+                        temperature=self.temperature,
+                        top_k=self.top_k,
                     )
                     predictions.append({"response": self.enc.decode(y[0].tolist())})
 
