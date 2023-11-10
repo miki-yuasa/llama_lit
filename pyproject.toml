@@ -9,6 +9,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.10,<3.11"
 lit-nlp = "^1.0.1"
+sentencepiece = "^0.1.99"
 
 
 [build-system]
