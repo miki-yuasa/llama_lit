@@ -1,3 +1,5 @@
+import json
+
 from lit_nlp import dev_server
 import torch
 
@@ -20,6 +22,11 @@ tokenizer_model_path: str = "tokenizer.model"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+dataset_path: str = "data/TinyStories_all_data/data00.json"
+
+with open(dataset_path, "r") as f:
+    dataset = json.load(f)
+
 checkpoint = torch.load(model_path)
 
 model_args = ModelArgs(**checkpoint["model_args"])
@@ -38,6 +45,7 @@ with torch.no_grad():
         y = model.generate(x, max_new_tokens, temperature=temperature, top_k=top_k)
         print(enc.decode(y[0].tolist()))
         print("---------------")
+
 
 # datasets = {
 #     "foo_data": FooDataset("/path/to/foo.tsv"),
