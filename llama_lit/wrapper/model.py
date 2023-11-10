@@ -1,5 +1,9 @@
 from collections.abc import Iterable
 from lit_nlp.api.model import JsonDict, Model
+import torch
+
+from model import ModelArgs, Transformer
+from tokenizer import Tokenizer
 
 
 class Llama2cModel(Model):
@@ -7,8 +11,38 @@ class Llama2cModel(Model):
     Wrapper for the llama2c model in .bin format
     """
 
-    def __init__(self, model_path: str) -> None:
+    def __init__(
+        self, model_path: str, tokenizer_model_path: str, device: torch.device
+    ) -> None:
         self.model_path: str = model_path
+        self.device: torch.device = device
 
-    def predict(self, inputs: Iterable[JsonDict], **kw) -> Iterable[JsonDict]:
-        return super().predict(inputs, **kw)
+        checkpoint = torch.load(model_path)
+        model_args = ModelArgs(**checkpoint["model_args"])
+        self.model = Transformer(model_args)
+        self.model.load_state_dict(checkpoint["model"])
+        self.model.to(device=device)
+
+        self.enc = Tokenizer(tokenizer_model=tokenizer_model_path)
+
+    def predict(
+        self,
+        inputs: Iterable[JsonDict],
+        num_samples: int = 1,
+        max_new_tokens: int = 100,
+        temperature: float = 1.0,
+        top_k: int = 300,
+    ) -> Iterable[JsonDict]:
+        predictions = []
+
+        for input in inputs:
+            start = input["start"]
+            start_ids = self.enc.encode(start, bos=True, eos=False)
+            x = torch.tensor(start_ids, dtype=torch.long, device=self.device)[None, ...]
+
+            with torch.no_grad():
+                for k in range(num_samples):
+                    y = self.model.generate(
+                        x, max_new_tokens, temperature=temperature, top_k=top_k
+                    )
+                    predictions.append({"story": self.enc.decode(y[0].tolist())})
