@@ -16,20 +16,21 @@ class Llama2cModel(Model):
         self,
         model_path: str,
         tokenizer_model_path: str,
-        device: torch.device,
         num_samples: int = 1,
         max_new_tokens: int = 100,
         temperature: float = 1.0,
         top_k: int = 300,
     ) -> None:
         self.model_path: str = model_path
-        self.device: torch.device = device
+        self.device: torch.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
 
         checkpoint = torch.load(model_path)
         model_args = ModelArgs(**checkpoint["model_args"])
         self.model = Transformer(model_args)
         self.model.load_state_dict(checkpoint["model"])
-        self.model.to(device=device)
+        self.model.to(device=self.device)
 
         self.enc = Tokenizer(tokenizer_model=tokenizer_model_path)
 
@@ -57,7 +58,12 @@ class Llama2cModel(Model):
                         temperature=self.temperature,
                         top_k=self.top_k,
                     )
-                    predictions.append({"response": self.enc.decode(y[0].tolist())})
+                    predictions.append(
+                        {
+                            "response": self.enc.decode(y[0].tolist()),
+                            "token_ids": y[0].tolist(),
+                        }
+                    )
 
         return predictions
 
@@ -70,4 +76,7 @@ class Llama2cModel(Model):
         }
 
     def output_spec(self) -> JsonDict:
-        return {"response": lit_types.TextSegment()}
+        return {
+            "response": lit_types.GeneratedText(),
+            "token_ids": lit_types.TokenEmbeddings(),
+        }
